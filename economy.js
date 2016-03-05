@@ -28,26 +28,31 @@ if(!ai.MAXMINERSPERBASE){
         {type:'Castle',player:ai.me,onlyFinshed:true}),
       scope.getBuildings(
         {type:'Fortress',player:ai.me,onlyFinshed:true}));
-    var mines=scope.getBuildings({type:'Goldmine'});
-    var invalidmines=[];
-    for(var i=0;i<mines.length;i++){
-      var mine=mines[i];//TODO ignore depleted mines
-      if(ai.DEBUG&&bases.length==0)throw 'No bases?1';
-      var closestbase=ai.findClosest(mine,bases);
-      if( 
-        (!closestbase.getX||!mine.getX)||
-        ai.measuredistance(closestbase,mine)
-            >ai.MAXMININGDISTANCE||
-        mines[i].getValue('gold')==0
-      ){
-        invalidmines.push(mine);
+
+    if(ai.DEBUG&&bases.length==0)
+      throw 'No bases?1';
+
+    var mines= scope.getBuildings({type:'Goldmine'});
+    var good_mines=[];
+    var closestbase, i, mine;
+    var closest_distance, closest_mine, distance;
+    for(i=0;i<mines.length;i++){
+      mine=mines[i];//TODO ignore depleted mines
+      closestbase = ai.findClosest(mine,bases);
+      if( !closestbase.getX || !mine.getX || ! mine.getValue('gold') )
+        continue;
+      distance = ai.measuredistance(closestbase,mine);
+      if( distance <= ai.MAXMININGDISTANCE )
+        good_mines.push(mine);
+      if( ! closest_distance || distance < closest_distance ){
+        closest_distance = distance;
+        closest_mine = mine;
       }
     }
-    for(var i=0;i<invalidmines.length;i++){
-      mines.splice(mines.indexOf(invalidmines[i]),1);
-    }
-    return mines;
-  }
+    if( ! good_mines.length && ! ai.canpay(ai.buildings.Castle) )
+      good_mines.push(closest_mine);
+    return good_mines;
+  };
   ai.mybases=function(){
     var bases=ai.joinarrays(
       scope.getBuildings({type:'Castle',player:ai.me,}),
@@ -66,7 +71,7 @@ if(!ai.MAXMINERSPERBASE){
         bases.splice(bases.indexOf(remove[i]),1);
     }
     return bases;
-  }
+  };
   ai.debugeconomy=function(label,accountability){//TODO
   };
   ai.lastrepair=0;
@@ -115,7 +120,9 @@ if(!ai.MAXMINERSPERBASE){
     for(var i=0;i<miners.length;i++){//all workers mine on closest base
       var miner=miners[i];
       var closestmine=ai.sortDistance(miner,mines)[0];
-      scope.order('Mine',[miner],{unit:closestmine,});
+      if( ! closestmine )
+        continue;
+      scope.order('Mine',[miner],{unit:closestmine});
       closestmine=accountability[mines.indexOf(closestmine)].workers;
       closestmine[closestmine.length]=miner;
     }
